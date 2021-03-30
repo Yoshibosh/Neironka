@@ -8,7 +8,7 @@ namespace Neiro{
     public class Net{
         public static void Neironka(){
 
-            Layer.n = 0.5;
+            Layer.n = 0.1;
 
             double[] correctValues = new double[10]{0.01,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9};
 
@@ -34,6 +34,7 @@ namespace Neiro{
 
                 layers[0].SetData(GetData(number,variation));
 
+                
                 for (int j = 1;j < 3;j++){
                     for (int i = 0;i < layers[j].length;i++){
                         layers[j].neurons[i].Activation();
@@ -50,12 +51,21 @@ namespace Neiro{
                         }
                     }
                 }
+                for (int j = 0;j < 3;j++){
+                    for (int i = 0;i < layers[j].length;i++){
+                        layers[j].neurons[i].ErorAdjustment();
+                        if (true){
+                            //WriteLine("Layer = {0}\tneuronPosition = {1}\tWrongValue = {2}",layers[j].currentCount,i,layers[j].neurons[i].wrongValue);
+                        }
+                    }
+                }
                 
                 
                 for (int i = 0; i < layers[2].length;i++){
                     SredOjibka += Math.Abs(layers[2].neurons[i].wrongValue);
                 } 
                 SredOjibka /= layers[2].length;
+                SredOjibka = Math.Round(SredOjibka,8); 
 
 
                 number++;
@@ -63,9 +73,14 @@ namespace Neiro{
                 count++;
 
                 for (int i = 0; i < layers[2].length;i++){
-                    WriteLine("Value {0} = {1}\tojibka = {2}\tSredOjibka = {3}",correctValues[i],layers[2].neurons[i].value,layers[2].neurons[i].wrongValue,SredOjibka);
+                    WriteLine("Value {0} = {1}\tojibka = {2}\tSredOjibka = {3}\tstep = {4}",correctValues[i],layers[2].neurons[i].value,layers[2].neurons[i].wrongValue,SredOjibka,count);
                 }  
-                //WriteLine("Value {0} = {1}\tojibka = {2}\tSredOjibka = {3}",correctValues[9],layers[2].neurons[9].value,layers[2].neurons[9].wrongValue,SredOjibka);
+
+                
+                
+                //WriteLine("Value {0} = {1}\tojibka = {2}\tSredOjibka = {3}",correctValues[4],layers[2].neurons[4].value,layers[2].neurons[4].wrongValue,SredOjibka);
+
+                //WriteLine("connect {0}-{1} = {2}",150,100,layers[0].neurons[0].rightConnections[9]);
 
             }
         
@@ -97,9 +112,9 @@ namespace Neiro{
             int counter = 0;
             for (int i = 0;i < data.Length;i += 3){
                 if (data[i] == 255){
-                    newData[i - counter*2] = 0;
-                }else{
                     newData[i - counter*2] = 1;
+                }else{
+                    newData[i - counter*2] = 3;
                 }
                 counter++;
             }
@@ -172,7 +187,7 @@ namespace Neiro{
                 for (int i = 0;i < this.prevLayer.length;i++){
                     this.prevLayer.neurons[i].rightConnections = new double[length];
                     for (int j = 0; j < length;j++){
-                         this.prevLayer.neurons[i].rightConnections[j] = rand.Next(-1,1)*rand.NextDouble();
+                         this.prevLayer.neurons[i].rightConnections[j] = Math.Pow(-1,rand.Next())*rand.NextDouble();
                     }
                 }
 
@@ -231,6 +246,18 @@ namespace Neiro{
                 sum += this.leftConnections[i] * this.layer.prevLayer.neurons[i].value;
             }
             this.value = 1/(1 + Math.Exp(sum*(-1)));
+            this.value = Math.Round(this.value,8);
+
+            if (this.value == Double.NaN){
+                    this.value = 0;
+                }
+
+            if (double.IsNaN(this.value)){
+                WriteLine("value vinovat");
+            }
+            
+            
+            //if (this.layer.currentCount == 2 && this.count == 9)WriteLine($"sum = {sum}\tvalue = {this.value}");
         }
 
         public void ErrorCalculation(){
@@ -240,6 +267,7 @@ namespace Neiro{
 
             if (this.rightConnections == null){
                 this.wrongValue = Layer.correctValues[this.count] - this.value;
+                this.wrongValue = Math.Round(this.wrongValue,8); 
                 return;
             }else{
                 for (int i = 0;i < this.layer.nextLayer.length;i++){
@@ -247,15 +275,42 @@ namespace Neiro{
                 }
             }
 
-            this.wrongValue = summ; 
-            
+            this.wrongValue = summ;
+            this.wrongValue = Math.Round(this.wrongValue,8); 
+
+            if (double.IsNaN(this.wrongValue)){
+                WriteLine("wrongValue vinovat");
+            }
+
+            //if (this.layer.currentCount == 1 && this.count == 9)WriteLine($"summ = {summ}\tWrongValue = {this.wrongValue}");
+
         }
 
         public void ErorAdjustment(){
 
+            if (this.rightConnections == null){return;}
+
+            //if (this.layer.currentCount == 0){WriteLine(this.rightConnections[9]);}
+
             for (int i = 0;i < this.rightConnections.Length;i++){
-                this.rightConnections[i] = this.rightConnections[i] + Layer.n * this.layer.nextLayer.neurons[i].wrongValue*(Math.Exp(sum)/Math.Pow(1 + Math.Exp(sum),2))*this.value;
+                if (sum > 100){
+                    this.rightConnections[i] = 0;
+                }else{
+
+                    this.rightConnections[i] = this.rightConnections[i] + Layer.n * this.layer.nextLayer.neurons[i].wrongValue*(Math.Exp(sum)/Math.Pow(1 + Math.Exp(sum),2))*this.value;
+                    
+                    this.layer.nextLayer.neurons[i].leftConnections[this.count] = this.rightConnections[i];
+
+                    if (double.IsNaN(this.rightConnections[i])){
+                        WriteLine($"rightConnections[{i}] {this.count} Neirona {this.layer.currentCount} Sloya vinovat\tsum = {sum}\tthis = {this.value}\twrong = {this.layer.nextLayer.neurons[i].wrongValue}");
+                        return;
+                    }
+                }
+
             }
+
+            //if (this.layer.currentCount == 0 && this.count == 10){WriteLine("{0} = {1}\t{2}",1,this.rightConnections[9],this.value);}
+            //if (this.layer.currentCount == 0 && this.count == 10){WriteLine("{0} = {1}\t{2}",2,this.layer.nextLayer.neurons[9].leftConnections[10],this.layer.nextLayer.neurons[9].value);}
         }
 
     }
